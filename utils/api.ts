@@ -3,12 +3,8 @@ const API_URL = 'https://api.scripture.api.bible/v1';
 
 interface Verse {
   id: string;
-  reference: string;
-  content: string;
-  verseCount?: number;
-  orgId?: string;
-  bookId?: string;
-  chapterId?: string;
+  number: string;
+  text: string;
 }
 
 interface APIResponse {
@@ -86,62 +82,62 @@ export const getChapters = async (bibleId: string, bookId: string) => {
   }
 };
 
-export const getChapterContent = async (bibleId: string, chapterId: string) => {
+export async function getChapterContent(bibleId: string, chapterId: string) {
   try {
-    console.log('Récupération du chapitre:', { bibleId, chapterId });
-    
-    // Récupérer le contenu du chapitre directement
-    const response = await fetch(`${API_URL}/bibles/${bibleId}/chapters/${chapterId}?content-type=text&include-verse-numbers=true`, {
-      headers: {
-        'api-key': API_KEY as string
+    const response = await fetch(
+      `${API_URL}/bibles/${bibleId}/chapters/${chapterId}?content-type=text&include-notes=false&include-titles=false&include-chapter-numbers=false&include-verse-numbers=true&include-verse-spans=false`,
+      {
+        headers: {
+          'api-key': API_KEY as string
+        }
       }
-    });
+    );
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      throw new Error(`Erreur HTTP: ${response.status}`);
     }
 
     const rawData = await response.json();
-    console.log('Données brutes reçues:', rawData);
-
-    if (!rawData || !rawData.data) {
-      throw new Error('Format de réponse invalide');
-    }
 
     // Extraire les versets du contenu
     const content = rawData.data.content;
     const reference = rawData.data.reference;
     
-    // Diviser le contenu en versets en utilisant les numéros de versets comme séparateurs
-    const versesMatch = content.match(/\[(\d+)\](.*?)(?=\[\d+\]|$)/g) || [];
-    
-    const verses = versesMatch.map(match => {
-      const [_, number, text] = match.match(/\[(\d+)\](.*)/) || [];
+    try {
+      // Diviser le contenu en versets en utilisant les numéros de versets comme séparateurs
+      const versesMatch = content.match(/\[(\d+)\](.*?)(?=\[\d+\]|$)/g) || [];
+      
+      const verses = versesMatch.map(match => {
+        const verseMatch = match.match(/\[(\d+)\](.*)/) || [];
+        if (verseMatch.length < 3) {
+          console.warn('Format de verset invalide:', match);
+          return null;
+        }
+        const verse: Verse = {
+          id: `${chapterId}-${verseMatch[1]}`,
+          number: verseMatch[1],
+          text: verseMatch[2].trim()
+        };
+        return verse;
+      }).filter((verse): verse is Verse => verse !== null);
+
       return {
-        id: `${chapterId}-${number}`,
-        number,
-        text: text.trim()
+        data: {
+          reference,
+          verses
+        }
       };
-    });
-
-    console.log('Versets formatés:', verses);
-
-    if (verses.length === 0) {
-      throw new Error('Aucun verset trouvé dans ce chapitre');
+    } catch (parseError) {
+      console.error('Erreur lors du traitement des versets:', parseError);
+      return {
+        data: {
+          reference,
+          verses: []
+        }
+      };
     }
-
-    const result = {
-      data: {
-        reference,
-        verses
-      }
-    };
-
-    console.log('Résultat final:', result);
-    return result;
-
   } catch (error) {
-    console.error('Erreur lors de la récupération des versets:', error);
+    console.error('Erreur lors de la récupération du contenu du chapitre:', error);
     throw error;
   }
-};
+}
