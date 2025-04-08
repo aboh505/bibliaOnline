@@ -107,7 +107,7 @@ export async function getChapterContent(bibleId: string, chapterId: string) {
       // Diviser le contenu en versets en utilisant les numéros de versets comme séparateurs
       const versesMatch = content.match(/\[(\d+)\](.*?)(?=\[\d+\]|$)/g) || [];
       
-      const verses = versesMatch.map(match => {
+      const verses = versesMatch.map((match: string) => {
         const verseMatch = match.match(/\[(\d+)\](.*)/) || [];
         if (verseMatch.length < 3) {
           console.warn('Format de verset invalide:', match);
@@ -119,7 +119,7 @@ export async function getChapterContent(bibleId: string, chapterId: string) {
           text: verseMatch[2].trim()
         };
         return verse;
-      }).filter((verse): verse is Verse => verse !== null);
+      }).filter((verse: Verse | null): verse is Verse => verse !== null);
 
       return {
         data: {
